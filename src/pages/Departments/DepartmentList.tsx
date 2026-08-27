@@ -44,25 +44,17 @@ const DepartmentList = () => {
     fetchData();
   }, []);
 
-  const handleDelete = async (id?: number) => {
-    if (!id) return;
-
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this department?",
-    );
-
-    if (!confirmed) return;
+  const handleDelete = async (id: string | number | undefined) => {
+    if (id === undefined) return;
 
     try {
-      await api.delete(`/departments/${id}`);
+      await api.delete(`/departments/${String(id)}`);
 
       setDepartments((prev) =>
-        prev.filter((department) => department.id !== id),
+        prev.filter((department) => String(department.id) !== String(id)),
       );
     } catch (error) {
-      console.error(error);
-
-      alert("Failed to delete department.");
+      console.error("Failed to delete department:", error);
     }
   };
 
