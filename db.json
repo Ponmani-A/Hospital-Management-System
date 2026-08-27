@@ -1,0 +1,167 @@
+{
+  "patients": [
+    {
+      "patientId": "P001",
+      "name": "Arun Kumar",
+      "age": 32,
+      "gender": "Male",
+      "phone": "9876543210",
+      "email": "arun@gmail.com",
+      "address": "12 Main Street, Chennai",
+      "bloodGroup": "O+",
+      "emergencyContact": "9876543211",
+      "medicalHistory": "No major history",
+      "id": "patient001"
+    },
+    {
+      "patientId": "P002",
+      "name": "Ladha",
+      "age": 40,
+      "gender": "Female",
+      "phone": "1234567890",
+      "email": "shivasa0811@gmail.com",
+      "address": "2/22 East Street, Kongu Nagar, Tiruppur",
+      "bloodGroup": "A+",
+      "emergencyContact": "1234560987",
+      "medicalHistory": "Heart problem",
+      "id": "patient002"
+    }
+  ],
+
+  "doctors": [
+    {
+      "doctorId": "DOC001",
+      "name": "Dr. Rajesh Kumar",
+      "specialization": "Cardiologist",
+      "department": "Cardiology",
+      "experience": 10,
+      "phone": "9876501234",
+      "email": "rajesh@hospital.com",
+      "availability": "Available",
+      "id": "doctor001"
+    },
+    {
+      "doctorId": "DOC002",
+      "name": "Dr. Priya Sharma",
+      "specialization": "Neurologist",
+      "department": "Neurology",
+      "experience": 7,
+      "phone": "9876505678",
+      "email": "priya@hospital.com",
+      "availability": "Available",
+      "id": "doctor002"
+    }
+  ],
+
+  "appointments": [
+    {
+      "appointmentId": "APT001",
+      "patientId": "patient001",
+      "doctorId": "doctor001",
+      "date": "2026-08-27",
+      "time": "10:00",
+      "reason": "Regular heart checkup",
+      "status": "Scheduled",
+      "id": "appointment001"
+    },
+    {
+      "appointmentId": "APT002",
+      "patientId": "patient002",
+      "doctorId": "doctor002",
+      "date": "2026-08-28",
+      "time": "11:30",
+      "reason": "Headache and dizziness",
+      "status": "Completed",
+      "id": "appointment002"
+    }
+  ],
+
+  "departments": [
+    {
+      "departmentId": "DEP001",
+      "name": "Cardiology",
+      "description": "Heart and cardiovascular care",
+      "status": "Active",
+      "id": "department001"
+    },
+    {
+      "departmentId": "DEP002",
+      "name": "Neurology",
+      "description": "Brain and nervous system care",
+      "status": "Active",
+      "id": "department002"
+    }
+  ],
+
+  "prescriptions": [
+    {
+      "prescriptionId": "RX001",
+      "patientId": "patient001",
+      "doctorId": "doctor001",
+      "date": "2026-08-27",
+      "medicines": [
+        {
+          "medicineName": "Paracetamol",
+          "dosage": "500mg",
+          "duration": "5 Days",
+          "instructions": "Take after food"
+        },
+        {
+          "medicineName": "Vitamin D3",
+          "dosage": "1000 IU",
+          "duration": "30 Days",
+          "instructions": "Take once daily"
+        }
+      ],
+      "id": "prescription001"
+    },
+    {
+      "prescriptionId": "RX002",
+      "patientId": "patient002",
+      "doctorId": "doctor002",
+      "date": "2026-08-28",
+      "medicines": [
+        {
+          "medicineName": "Ibuprofen",
+          "dosage": "400mg",
+          "duration": "3 Days",
+          "instructions": "Take after meals"
+        },
+        {
+          "medicineName": "Omeprazole",
+          "dosage": "20mg",
+          "duration": "7 Days",
+          "instructions": "Take before breakfast"
+        }
+      ],
+      "id": "prescription002"
+    }
+  ],
+
+  "bills": [
+    {
+      "billId": "BILL001",
+      "patientId": "patient001",
+      "consultationCharges": 500,
+      "medicineCharges": 750,
+      "labCharges": 1000,
+      "otherCharges": 250,
+      "totalAmount": 2500,
+      "paymentStatus": "Paid",
+      "date": "2026-08-27",
+      "id": "bill001"
+    },
+    {
+      "billId": "BILL002",
+      "patientId": "patient002",
+      "consultationCharges": 700,
+      "medicineCharges": 900,
+      "labCharges": 1200,
+      "otherCharges": 300,
+      "totalAmount": 3100,
+      "paymentStatus": "Pending",
+      "date": "2026-08-28",
+      "id": "bill002"
+    }
+  ]
+}
