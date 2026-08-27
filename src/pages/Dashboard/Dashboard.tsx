@@ -22,24 +22,77 @@ const Dashboard = () => {
       try {
         setLoading(true);
 
-        const [
-          patientsResponse,
-          doctorsResponse,
-          appointmentsResponse,
-          bedsResponse,
-        ] = await Promise.all([
-          api.get<Patient[]>("/patients"),
-          api.get<Doctor[]>("/doctors"),
-          api.get<Appointment[]>("/appointments"),
-          api.get<Bed[]>("/beds"),
-        ]);
+        // =========================
+        // Patients
+        // =========================
+        try {
+          const patientsResponse = await api.get("/patients");
 
-        setPatients(patientsResponse.data);
-        setDoctors(doctorsResponse.data);
-        setAppointments(appointmentsResponse.data);
-        setBeds(bedsResponse.data);
+          console.log("Patients:", patientsResponse.data);
+
+          setPatients(
+            Array.isArray(patientsResponse.data) ? patientsResponse.data : [],
+          );
+        } catch (error) {
+          console.error("Patients API Error:", error);
+
+          setPatients([]);
+        }
+
+        // =========================
+        // Doctors
+        // =========================
+        try {
+          const doctorsResponse = await api.get("/doctors");
+
+          console.log("Doctors:", doctorsResponse.data);
+
+          setDoctors(
+            Array.isArray(doctorsResponse.data) ? doctorsResponse.data : [],
+          );
+        } catch (error) {
+          console.error("Doctors API Error:", error);
+
+          setDoctors([]);
+        }
+
+        // =========================
+        // Appointments
+        // =========================
+        try {
+          const appointmentsResponse = await api.get("/appointments");
+
+          console.log("Appointments:", appointmentsResponse.data);
+
+          setAppointments(
+            Array.isArray(appointmentsResponse.data)
+              ? appointmentsResponse.data
+              : [],
+          );
+        } catch (error) {
+          console.error("Appointments API Error:", error);
+
+          setAppointments([]);
+        }
+
+        // =========================
+        // Beds
+        // =========================
+        try {
+          const bedsResponse = await api.get("/beds");
+
+          console.log("Beds:", bedsResponse.data);
+
+          setBeds(Array.isArray(bedsResponse.data) ? bedsResponse.data : []);
+        } catch (error) {
+          console.error("Beds API Error:", error);
+
+          // Beds API 404 இருந்தாலும்
+          // dashboard மற்ற data வேலை செய்யும்
+          setBeds([]);
+        }
       } catch (error) {
-        console.error("Failed to load dashboard:", error);
+        console.error("Dashboard API Error:", error);
       } finally {
         setLoading(false);
       }
@@ -48,26 +101,38 @@ const Dashboard = () => {
     fetchDashboardData();
   }, []);
 
-  // Today's date
-  const today = new Date().toISOString().split("T")[0]; //take date and time
+  // =========================
+  // Today's Date
+  // =========================
+  const today = new Date().toISOString().split("T")[0];
 
-  // Today's appointments
+  // =========================
+  // Today's Appointments
+  // =========================
   const todayAppointments = appointments.filter(
     (appointment) => appointment.date === today,
   );
 
-  // Pending appointments
+  // =========================
+  // Pending Appointments
+  // =========================
   const pendingAppointments = appointments.filter(
-    (appointment) => appointment.status === "Scheduled", //take only scheduled appointment
+    (appointment) => appointment.status === "Scheduled",
   );
 
-  // Available beds
+  // =========================
+  // Available Beds
+  // =========================
   const availableBeds = beds.filter((bed) => bed.status === "Available");
 
-  // Recent patients
+  // =========================
+  // Recent Patients
+  // =========================
   const recentPatients = [...patients].reverse().slice(0, 5);
 
+  // =========================
   // Loading
+  // =========================
   if (loading) {
     return (
       <div className="flex min-h-[500px] items-center justify-center bg-slate-50">
@@ -82,8 +147,9 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-full bg-slate-50 p-6 lg:p-8">
-      {/* Header */}
-
+      {/* =========================
+          Header
+      ========================= */}
       <div className="mb-7">
         <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
 
@@ -92,11 +158,11 @@ const Dashboard = () => {
         </p>
       </div>
 
-      {/* Statistics */}
-
+      {/* =========================
+          Statistics
+      ========================= */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-5">
         {/* Total Patients */}
-
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
@@ -116,7 +182,6 @@ const Dashboard = () => {
         </div>
 
         {/* Total Doctors */}
-
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
@@ -136,7 +201,6 @@ const Dashboard = () => {
         </div>
 
         {/* Today's Appointments */}
-
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
@@ -155,8 +219,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Pending */}
-
+        {/* Pending Appointments */}
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
@@ -176,7 +239,6 @@ const Dashboard = () => {
         </div>
 
         {/* Available Beds */}
-
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
@@ -196,9 +258,11 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Recent Patients */}
-
+      {/* =========================
+          Recent Patients
+      ========================= */}
       <div className="mt-7 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
           <div>
             <h2 className="text-base font-semibold text-slate-800">
@@ -218,6 +282,7 @@ const Dashboard = () => {
           </a>
         </div>
 
+        {/* Empty State */}
         {recentPatients.length === 0 ? (
           <div className="p-10 text-center">
             <p className="text-sm text-slate-500">
@@ -225,6 +290,7 @@ const Dashboard = () => {
             </p>
           </div>
         ) : (
+          /* Table */
           <div className="overflow-x-auto">
             <table className="w-full min-w-[700px]">
               <thead className="bg-slate-50">
