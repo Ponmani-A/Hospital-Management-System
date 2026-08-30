@@ -2,74 +2,62 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
 import type { Bill, Patient } from "../../types";
+import DownloadBillButton from "../Billing/DownloadBillButton";
 
 const BillingView = () => {
   const { id } = useParams();
+
   const navigate = useNavigate();
 
   const [bill, setBill] = useState<Bill | null>(null);
-  const [patient, setPatient] = useState<Patient | null>(null);
+
+  const [patient, setPatient] = useState<Patient | undefined>();
+
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchBill = async () => {
       try {
         setLoading(true);
 
-        const billResponse = await api.get<Bill>(`/bills/${id}`);
+        const [billResponse, patientsResponse] = await Promise.all([
+          api.get(`/bills/${String(id)}`),
+          api.get("/patients"),
+        ]);
 
-        const billData = billResponse.data;
+        const billData = billResponse.data as Bill;
 
-        setBill(billData);
+        const patients = Array.isArray(patientsResponse.data)
+          ? patientsResponse.data
+          : [];
 
-        const patientResponse = await api.get<Patient[]>("/patients");
-
-        const foundPatient = patientResponse.data.find(
-          (item) =>
-            String(item.id) === String(billData.patientId) ||
-            String(item.patientId) === String(billData.patientId),
+        const foundPatient = patients.find(
+          (item: Patient) =>
+            String(item.patientId) === String(billData.patientId) ||
+            String(item.id) === String(billData.patientId),
         );
 
-        setPatient(foundPatient || null);
+        setBill(billData);
+        setPatient(foundPatient);
       } catch (error) {
-        console.error("Failed to load bill:", error);
+        console.error("Billing view error:", error);
       } finally {
         setLoading(false);
       }
     };
 
     if (id) {
-      fetchData();
+      fetchBill();
     }
   }, [id]);
 
-  const getStatusStyle = (status: string) => {
-    switch (status) {
-      case "Paid":
-        return "bg-green-50 text-green-600";
-
-      case "Pending":
-        return "bg-red-50 text-red-600";
-
-      case "Partially Paid":
-        return "bg-orange-50 text-orange-600";
-
-      default:
-        return "bg-slate-100 text-slate-600";
-    }
-  };
-
-  const formatAmount = (amount: number) => {
-    return amount.toLocaleString("en-IN");
-  };
-
   if (loading) {
     return (
-      <div className="flex min-h-[400px] items-center justify-center bg-slate-50">
+      <div className="flex min-h-[500px] items-center justify-center bg-slate-50">
         <div className="text-center">
           <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-blue-600" />
 
-          <p className="text-sm text-slate-500">Loading bill details...</p>
+          <p className="text-sm text-slate-500">Loading bill...</p>
         </div>
       </div>
     );
@@ -77,15 +65,16 @@ const BillingView = () => {
 
   if (!bill) {
     return (
-      <div className="flex min-h-[400px] items-center justify-center bg-slate-50">
+      <div className="flex min-h-[500px] items-center justify-center bg-slate-50">
         <div className="text-center">
           <h2 className="text-lg font-semibold text-slate-800">
-            Bill not found
+            Bill Not Found
           </h2>
 
           <button
+            type="button"
             onClick={() => navigate("/billing")}
-            className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white"
           >
             Back to Billing
           </button>
@@ -98,51 +87,112 @@ const BillingView = () => {
     <div className="min-h-full bg-slate-50 p-6 lg:p-8">
       {/* Header */}
 
-      <div className="mx-auto mb-6 flex max-w-4xl items-center justify-between">
+      <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
+          <button
+            type="button"
+            onClick={() => navigate("/billing")}
+            className="mb-3 text-sm font-medium text-blue-600 hover:text-blue-700"
+          >
+            ← Back to Billing
+          </button>
+
           <h1 className="text-2xl font-bold text-slate-900">Bill Details</h1>
 
           <p className="mt-1 text-sm text-slate-500">
-            View complete patient billing information
+            View complete billing information
           </p>
         </div>
 
-        <button
-          onClick={() => navigate("/billing")}
-          className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
-        >
-          ← Back
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => navigate(`/billing/edit/${String(bill.id)}`)}
+            className="rounded-lg border border-blue-200 bg-white px-4 py-2.5 text-sm font-medium text-blue-600 transition hover:bg-blue-50"
+          >
+            Edit
+          </button>
+
+          <DownloadBillButton bill={bill} patient={patient} />
+        </div>
       </div>
 
-      {/* Bill Card */}
+      {/* Invoice */}
 
-      <div className="mx-auto max-w-4xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        {/* Bill Header */}
+      <div className="mx-auto max-w-4xl rounded-xl border border-slate-200 bg-white shadow-sm">
+        {/* Invoice Header */}
 
         <div className="border-b border-slate-200 p-6">
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col justify-between gap-5 sm:flex-row">
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-                Bill ID
-              </p>
-
-              <h2 className="mt-1 text-xl font-bold text-slate-900">
-                {bill.billId}
+              <h2 className="text-xl font-bold text-slate-900">
+                Hospital Management System
               </h2>
+
+              <p className="mt-1 text-sm text-slate-500">
+                Patient Billing Invoice
+              </p>
             </div>
 
             <div className="sm:text-right">
-              <p className="text-xs text-slate-400">Billing Date</p>
+              <p className="text-sm text-slate-500">Bill ID</p>
 
-              <p className="mt-1 text-sm font-semibold text-slate-700">
-                {bill.date}
+              <p className="text-lg font-bold text-blue-600">{bill.billId}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Patient Details */}
+
+        <div className="border-b border-slate-200 p-6">
+          <h3 className="mb-4 text-base font-semibold text-slate-800">
+            Patient Information
+          </h3>
+
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                Patient Name
+              </p>
+
+              <p className="mt-1 text-sm font-medium text-slate-800">
+                {patient?.name || "Unknown Patient"}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                Patient ID
+              </p>
+
+              <p className="mt-1 text-sm font-medium text-slate-800">
+                {String(bill.patientId)}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                Bill Date
+              </p>
+
+              <p className="mt-1 text-sm font-medium text-slate-800">
+                {bill.date || "N/A"}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                Payment Status
               </p>
 
               <span
-                className={`mt-2 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${getStatusStyle(
-                  bill.paymentStatus,
-                )}`}
+                className={`mt-1 inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
+                  bill.paymentStatus === "Paid"
+                    ? "bg-green-50 text-green-700"
+                    : bill.paymentStatus === "Pending"
+                      ? "bg-orange-50 text-orange-700"
+                      : "bg-blue-50 text-blue-700"
+                }`}
               >
                 {bill.paymentStatus}
               </span>
@@ -150,129 +200,79 @@ const BillingView = () => {
           </div>
         </div>
 
-        {/* Patient */}
-
-        <div className="border-b border-slate-200 p-6">
-          <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-500">
-            Patient Information
-          </h3>
-
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-5">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-lg font-semibold text-blue-600">
-                {patient?.name?.charAt(0).toUpperCase() || "P"}
-              </div>
-
-              <div>
-                <p className="text-base font-semibold text-slate-800">
-                  {patient?.name || "Unknown Patient"}
-                </p>
-
-                <p className="mt-1 text-xs text-slate-500">
-                  Patient ID: {patient?.patientId || "-"}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <div>
-                <p className="text-xs text-slate-400">Age</p>
-
-                <p className="mt-1 text-sm font-medium text-slate-700">
-                  {patient?.age ?? "-"}
-                </p>
-              </div>
-
-              <div>
-                <p className="text-xs text-slate-400">Gender</p>
-
-                <p className="mt-1 text-sm font-medium text-slate-700">
-                  {patient?.gender || "-"}
-                </p>
-              </div>
-
-              <div>
-                <p className="text-xs text-slate-400">Phone</p>
-
-                <p className="mt-1 text-sm font-medium text-slate-700">
-                  {patient?.phone || "-"}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
         {/* Charges */}
 
         <div className="p-6">
-          <h3 className="mb-5 text-sm font-semibold uppercase tracking-wide text-slate-500">
+          <h3 className="mb-4 text-base font-semibold text-slate-800">
             Billing Summary
           </h3>
 
           <div className="overflow-hidden rounded-lg border border-slate-200">
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-              <span className="text-sm text-slate-600">
-                Consultation Charges
-              </span>
+            <table className="w-full">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Description
+                  </th>
 
-              <span className="text-sm font-medium text-slate-800">
-                ₹{formatAmount(bill.consultationCharges)}
-              </span>
-            </div>
+                  <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Amount
+                  </th>
+                </tr>
+              </thead>
 
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-              <span className="text-sm text-slate-600">Medicine Charges</span>
+              <tbody>
+                <tr className="border-t border-slate-200">
+                  <td className="px-5 py-4 text-sm text-slate-700">
+                    Consultation Charges
+                  </td>
 
-              <span className="text-sm font-medium text-slate-800">
-                ₹{formatAmount(bill.medicineCharges)}
-              </span>
-            </div>
+                  <td className="px-5 py-4 text-right text-sm font-medium text-slate-800">
+                    ₹{Number(bill.consultationFee).toFixed(2)}
+                  </td>
+                </tr>
 
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-              <span className="text-sm text-slate-600">Lab / Test Charges</span>
+                <tr className="border-t border-slate-200">
+                  <td className="px-5 py-4 text-sm text-slate-700">
+                    Medicine Charges
+                  </td>
 
-              <span className="text-sm font-medium text-slate-800">
-                ₹{formatAmount(bill.labCharges)}
-              </span>
-            </div>
+                  <td className="px-5 py-4 text-right text-sm font-medium text-slate-800">
+                    ₹{Number(bill.medicineCharges).toFixed(2)}
+                  </td>
+                </tr>
 
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-              <span className="text-sm text-slate-600">Other Charges</span>
+                <tr className="border-t border-slate-200">
+                  <td className="px-5 py-4 text-sm text-slate-700">
+                    Lab / Test Charges
+                  </td>
 
-              <span className="text-sm font-medium text-slate-800">
-                ₹{formatAmount(bill.otherCharges)}
-              </span>
-            </div>
+                  <td className="px-5 py-4 text-right text-sm font-medium text-slate-800">
+                    ₹{Number(bill.labCharges).toFixed(2)}
+                  </td>
+                </tr>
 
-            {/* Total */}
+                <tr className="border-t border-slate-200">
+                  <td className="px-5 py-4 text-sm text-slate-700">
+                    Other Charges
+                  </td>
 
-            <div className="flex items-center justify-between bg-blue-50 px-5 py-5">
-              <span className="text-base font-bold text-slate-800">
-                Total Amount
-              </span>
+                  <td className="px-5 py-4 text-right text-sm font-medium text-slate-800">
+                    ₹{Number(bill.otherCharges).toFixed(2)}
+                  </td>
+                </tr>
 
-              <span className="text-2xl font-bold text-blue-600">
-                ₹{formatAmount(bill.totalAmount)}
-              </span>
-            </div>
-          </div>
+                <tr className="border-t border-slate-300 bg-slate-50">
+                  <td className="px-5 py-4 text-base font-bold text-slate-900">
+                    Total Amount
+                  </td>
 
-          {/* Actions */}
-
-          <div className="mt-6 flex justify-end gap-3 border-t border-slate-200 pt-5">
-            <button
-              onClick={() => navigate(`/billing/edit/${bill.id}`)}
-              className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
-            >
-              Edit Bill
-            </button>
-
-            <button
-              onClick={() => navigate("/billing")}
-              className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
-            >
-              Back to List
-            </button>
+                  <td className="px-5 py-4 text-right text-lg font-bold text-blue-600">
+                    ₹{Number(bill.totalAmount).toFixed(2)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>

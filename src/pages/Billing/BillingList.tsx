@@ -8,60 +8,63 @@ const BillList = () => {
   const navigate = useNavigate();
 
   const [bills, setBills] = useState<Bill[]>([]);
+
   const [patients, setPatients] = useState<Patient[]>([]);
 
   const [search, setSearch] = useState("");
+
   const [statusFilter, setStatusFilter] = useState("All");
 
   const [currentPage, setCurrentPage] = useState(1);
 
-  const itemsPerPage = 5;
-
   const [loading, setLoading] = useState(true);
 
-  // =========================
-  // Fetch Bills & Patients
-  // =========================
+  const itemsPerPage = 5;
+
+  // ==========================
+  // Fetch Data
+  // ==========================
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+
+      const [billsResponse, patientsResponse] = await Promise.all([
+        api.get("/bills"),
+        api.get("/patients"),
+      ]);
+
+      setBills(Array.isArray(billsResponse.data) ? billsResponse.data : []);
+
+      setPatients(
+        Array.isArray(patientsResponse.data) ? patientsResponse.data : [],
+      );
+    } catch (error) {
+      console.error("Billing API Error:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-
-        const billsResponse = await api.get("/bills");
-
-        const patientsResponse = await api.get("/patients");
-
-        setBills(Array.isArray(billsResponse.data) ? billsResponse.data : []);
-
-        setPatients(
-          Array.isArray(patientsResponse.data) ? patientsResponse.data : [],
-        );
-      } catch (error) {
-        console.error("Billing API Error:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchData();
   }, []);
 
-  // =========================
-  // Find Patient
-  // =========================
+  // ==========================
+  // Get Patient
+  // ==========================
 
   const getPatient = (patientId: string | number) => {
     return patients.find(
       (patient) =>
-        String(patient.id) === String(patientId) ||
-        String(patient.patientId) === String(patientId),
+        String(patient.patientId) === String(patientId) ||
+        String(patient.id) === String(patientId),
     );
   };
 
-  // =========================
+  // ==========================
   // Search + Filter
-  // =========================
+  // ==========================
 
   const filteredBills = useMemo(() => {
     return bills.filter((bill) => {
@@ -82,9 +85,9 @@ const BillList = () => {
     });
   }, [bills, patients, search, statusFilter]);
 
-  // =========================
+  // ==========================
   // Pagination
-  // =========================
+  // ==========================
 
   const totalPages = Math.ceil(filteredBills.length / itemsPerPage);
 
@@ -95,9 +98,9 @@ const BillList = () => {
     startIndex + itemsPerPage,
   );
 
-  // =========================
-  // Delete Bill
-  // =========================
+  // ==========================
+  // Delete
+  // ==========================
 
   const handleDelete = async (id?: string | number) => {
     if (id === undefined) {
@@ -115,9 +118,7 @@ const BillList = () => {
     try {
       await api.delete(`/bills/${String(id)}`);
 
-      setBills((prevBills) =>
-        prevBills.filter((bill) => String(bill.id) !== String(id)),
-      );
+      setBills((prev) => prev.filter((bill) => String(bill.id) !== String(id)));
     } catch (error) {
       console.error("Delete bill error:", error);
 
@@ -125,9 +126,9 @@ const BillList = () => {
     }
   };
 
-  // =========================
-  // Edit Bill
-  // =========================
+  // ==========================
+  // Edit
+  // ==========================
 
   const handleEdit = (id?: string | number) => {
     if (id === undefined) {
@@ -137,9 +138,9 @@ const BillList = () => {
     navigate(`/billing/edit/${String(id)}`);
   };
 
-  // =========================
+  // ==========================
   // Loading
-  // =========================
+  // ==========================
 
   if (loading) {
     return (
@@ -153,13 +154,10 @@ const BillList = () => {
     );
   }
 
-  // =========================
-  // UI
-  // =========================
-
   return (
     <div className="min-h-full bg-slate-50 p-6 lg:p-8">
       {/* Header */}
+
       <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Billing</h1>
@@ -177,10 +175,10 @@ const BillList = () => {
         </Link>
       </div>
 
-      {/* Search & Filter */}
+      {/* Search / Filter */}
+
       <div className="mb-5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {/* Search */}
           <div>
             <label className="mb-1.5 block text-sm font-medium text-slate-700">
               Search
@@ -198,7 +196,6 @@ const BillList = () => {
             />
           </div>
 
-          {/* Status */}
           <div>
             <label className="mb-1.5 block text-sm font-medium text-slate-700">
               Payment Status
@@ -224,7 +221,8 @@ const BillList = () => {
         </div>
       </div>
 
-      {/* Bill Table */}
+      {/* Table */}
+
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1100px]">
@@ -236,6 +234,10 @@ const BillList = () => {
 
                 <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
                   Patient
+                </th>
+
+                <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Date
                 </th>
 
                 <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -271,7 +273,7 @@ const BillList = () => {
             <tbody>
               {paginatedBills.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-12 text-center">
+                  <td colSpan={10} className="px-6 py-12 text-center">
                     <p className="text-sm text-slate-500">No bills found.</p>
                   </td>
                 </tr>
@@ -281,10 +283,11 @@ const BillList = () => {
 
                   return (
                     <tr
-                      key={bill.id}
+                      key={String(bill.id ?? bill.billId)}
                       className="border-b border-slate-100 last:border-0 hover:bg-slate-50"
                     >
                       {/* Bill ID */}
+
                       <td className="px-6 py-4">
                         <span className="text-sm font-semibold text-blue-600">
                           {bill.billId}
@@ -292,6 +295,7 @@ const BillList = () => {
                       </td>
 
                       {/* Patient */}
+
                       <td className="px-6 py-4">
                         <div>
                           <p className="text-sm font-medium text-slate-800">
@@ -304,27 +308,38 @@ const BillList = () => {
                         </div>
                       </td>
 
+                      {/* Date */}
+
+                      <td className="px-6 py-4 text-sm text-slate-600">
+                        {bill.date || "N/A"}
+                      </td>
+
                       {/* Consultation */}
+
                       <td className="px-6 py-4 text-sm text-slate-600">
                         ₹{Number(bill.consultationFee).toFixed(2)}
                       </td>
 
                       {/* Medicine */}
+
                       <td className="px-6 py-4 text-sm text-slate-600">
                         ₹{Number(bill.medicineCharges).toFixed(2)}
                       </td>
 
                       {/* Lab */}
+
                       <td className="px-6 py-4 text-sm text-slate-600">
                         ₹{Number(bill.labCharges).toFixed(2)}
                       </td>
 
                       {/* Other */}
+
                       <td className="px-6 py-4 text-sm text-slate-600">
                         ₹{Number(bill.otherCharges).toFixed(2)}
                       </td>
 
                       {/* Total */}
+
                       <td className="px-6 py-4">
                         <span className="text-sm font-bold text-slate-900">
                           ₹{Number(bill.totalAmount).toFixed(2)}
@@ -332,6 +347,7 @@ const BillList = () => {
                       </td>
 
                       {/* Status */}
+
                       <td className="px-6 py-4">
                         <span
                           className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
@@ -347,8 +363,16 @@ const BillList = () => {
                       </td>
 
                       {/* Actions */}
+
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
+                          <Link
+                            to={`/billing/view/${String(bill.id)}`}
+                            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
+                          >
+                            View
+                          </Link>
+
                           <button
                             type="button"
                             onClick={() => handleEdit(bill.id)}
@@ -376,12 +400,10 @@ const BillList = () => {
           </table>
         </div>
 
-        {/* =========================
-            Pagination
-        ========================= */}
+        {/* Pagination */}
 
         {totalPages > 1 && (
-          <div className="flex items-center justify-between border-t border-slate-200 px-6 py-4">
+          <div className="flex flex-col gap-3 border-t border-slate-200 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-slate-500">
               Showing {startIndex + 1}–
               {Math.min(startIndex + itemsPerPage, filteredBills.length)} of{" "}

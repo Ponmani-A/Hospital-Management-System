@@ -62,12 +62,84 @@ export interface Prescription {
 
 export interface Bill {
   id?: string | number;
+
   billId: string;
+
   patientId: string | number;
+
+  date?: string;
+
   consultationFee: number;
+
   medicineCharges: number;
+
   labCharges: number;
+
   otherCharges: number;
+
   totalAmount: number;
+
   paymentStatus: "Paid" | "Pending" | "Partially Paid";
+}
+
+export interface Patient {
+  id?: string | number;
+
+  patientId: string;
+
+  name: string;
+
+  age: number;
+
+  gender: string;
+
+  phone: string;
+
+  email: string;
+
+  address: string;
+
+  bloodGroup: string;
+
+  emergencyContact: string;
+
+  medicalHistory: string;
+}
+
+export interface Doctor {
+  id?: string | number;
+
+  doctorId: string;
+
+  name: string;
+
+  specialization: string;
+
+  department: string;
+
+  experience: number;
+
+  phone: string;
+
+  email: string;
+
+  availability: string;
+}
+
+export interface Appointment {
+  id?: string | number;
+
+  appointmentId: string;
+
+  patientId: string | number;
+
+  doctorId: string | number;
+
+  date: string;
+
+  time: string;
+
+  reason: string;
+
+  status: "Scheduled" | "Completed" | "Cancelled" | "No-show";
 }
