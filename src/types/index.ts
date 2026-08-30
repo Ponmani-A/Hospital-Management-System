@@ -64,11 +64,10 @@ export interface Bill {
   id?: string | number;
   billId: string;
   patientId: string | number;
-  consultationCharges: number;
+  consultationFee: number;
   medicineCharges: number;
   labCharges: number;
   otherCharges: number;
   totalAmount: number;
   paymentStatus: "Paid" | "Pending" | "Partially Paid";
-  date: string;
 }

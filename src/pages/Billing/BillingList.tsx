@@ -1,42 +1,44 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import type { Bill, Patient } from "../../types";
+import DownloadBillButton from "../Billing/DownloadBillButton";
 
-const BillingList = () => {
+const BillList = () => {
   const navigate = useNavigate();
 
   const [bills, setBills] = useState<Bill[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
-  const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
-  const [sortBy, setSortBy] = useState("date");
-  const [sortOrder, setSortOrder] = useState("desc");
 
   const [currentPage, setCurrentPage] = useState(1);
 
   const itemsPerPage = 5;
 
-  // ============================
+  const [loading, setLoading] = useState(true);
+
+  // =========================
   // Fetch Bills & Patients
-  // ============================
+  // =========================
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
 
-        const [billResponse, patientResponse] = await Promise.all([
-          api.get<Bill[]>("/bills"),
-          api.get<Patient[]>("/patients"),
-        ]);
+        const billsResponse = await api.get("/bills");
 
-        setBills(billResponse.data);
-        setPatients(patientResponse.data);
+        const patientsResponse = await api.get("/patients");
+
+        setBills(Array.isArray(billsResponse.data) ? billsResponse.data : []);
+
+        setPatients(
+          Array.isArray(patientsResponse.data) ? patientsResponse.data : [],
+        );
       } catch (error) {
-        console.error("Failed to fetch billing data:", error);
+        console.error("Billing API Error:", error);
       } finally {
         setLoading(false);
       }
@@ -45,59 +47,33 @@ const BillingList = () => {
     fetchData();
   }, []);
 
-  // ============================
-  // Patient Name
-  // ============================
+  // =========================
+  // Find Patient
+  // =========================
 
-  const getPatientName = (patientId: string | number) => {
-    const patient = patients.find(
-      (item) =>
-        String(item.id) === String(patientId) ||
-        String(item.patientId) === String(patientId),
+  const getPatient = (patientId: string | number) => {
+    return patients.find(
+      (patient) =>
+        String(patient.id) === String(patientId) ||
+        String(patient.patientId) === String(patientId),
     );
-
-    return patient?.name || "Unknown Patient";
   };
 
-  // ============================
-  // Delete Bill
-  // ============================
-
-  const handleDelete = async (id?: string | number) => {
-    if (!id) return;
-
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this bill?",
-    );
-
-    if (!confirmed) return;
-
-    try {
-      await api.delete(`/bills/${id}`);
-
-      setBills((prev) => prev.filter((bill) => String(bill.id) !== String(id)));
-    } catch (error) {
-      console.error(error);
-
-      alert("Failed to delete bill.");
-    }
-  };
-
-  // ============================
-  // Filter
-  // ============================
+  // =========================
+  // Search + Filter
+  // =========================
 
   const filteredBills = useMemo(() => {
     return bills.filter((bill) => {
-      const patientName = getPatientName(bill.patientId);
+      const patient = getPatient(bill.patientId);
 
-      const searchText = `
-        ${bill.billId}
-        ${patientName}
-        ${bill.paymentStatus}
-      `.toLowerCase();
+      const searchText = search.toLowerCase().trim();
 
-      const matchesSearch = searchText.includes(search.toLowerCase());
+      const matchesSearch =
+        searchText === "" ||
+        String(bill.billId).toLowerCase().includes(searchText) ||
+        String(bill.patientId).toLowerCase().includes(searchText) ||
+        patient?.name?.toLowerCase().includes(searchText);
 
       const matchesStatus =
         statusFilter === "All" || bill.paymentStatus === statusFilter;
@@ -106,159 +82,137 @@ const BillingList = () => {
     });
   }, [bills, patients, search, statusFilter]);
 
-  // ============================
-  // Sorting
-  // ============================
-
-  const sortedBills = useMemo(() => {
-    const data = [...filteredBills];
-
-    data.sort((a, b) => {
-      let valueA = "";
-      let valueB = "";
-
-      if (sortBy === "date") {
-        valueA = a.date;
-        valueB = b.date;
-      }
-
-      if (sortBy === "patient") {
-        valueA = getPatientName(a.patientId).toLowerCase();
-
-        valueB = getPatientName(b.patientId).toLowerCase();
-      }
-
-      if (sortBy === "status") {
-        valueA = a.paymentStatus.toLowerCase();
-
-        valueB = b.paymentStatus.toLowerCase();
-      }
-
-      if (sortBy === "total") {
-        return sortOrder === "asc"
-          ? a.totalAmount - b.totalAmount
-          : b.totalAmount - a.totalAmount;
-      }
-
-      if (valueA < valueB) {
-        return sortOrder === "asc" ? -1 : 1;
-      }
-
-      if (valueA > valueB) {
-        return sortOrder === "asc" ? 1 : -1;
-      }
-
-      return 0;
-    });
-
-    return data;
-  }, [filteredBills, patients, sortBy, sortOrder]);
-
-  // ============================
+  // =========================
   // Pagination
-  // ============================
+  // =========================
 
-  const totalPages = Math.ceil(sortedBills.length / itemsPerPage);
+  const totalPages = Math.ceil(filteredBills.length / itemsPerPage);
 
   const startIndex = (currentPage - 1) * itemsPerPage;
 
-  const paginatedBills = sortedBills.slice(
+  const paginatedBills = filteredBills.slice(
     startIndex,
     startIndex + itemsPerPage,
   );
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [search, statusFilter, sortBy, sortOrder]);
+  // =========================
+  // Delete Bill
+  // =========================
 
-  // ============================
-  // Status Style
-  // ============================
+  const handleDelete = async (id?: string | number) => {
+    if (id === undefined) {
+      return;
+    }
 
-  const getStatusStyle = (status: string) => {
-    switch (status) {
-      case "Paid":
-        return "bg-green-50 text-green-600";
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this bill?",
+    );
 
-      case "Pending":
-        return "bg-red-50 text-red-600";
+    if (!confirmed) {
+      return;
+    }
 
-      case "Partially Paid":
-        return "bg-orange-50 text-orange-600";
+    try {
+      await api.delete(`/bills/${String(id)}`);
 
-      default:
-        return "bg-slate-100 text-slate-600";
+      setBills((prevBills) =>
+        prevBills.filter((bill) => String(bill.id) !== String(id)),
+      );
+    } catch (error) {
+      console.error("Delete bill error:", error);
+
+      alert("Failed to delete bill.");
     }
   };
 
-  // ============================
-  // Clear Filters
-  // ============================
+  // =========================
+  // Edit Bill
+  // =========================
 
-  const clearFilters = () => {
-    setSearch("");
-    setStatusFilter("All");
-    setSortBy("date");
-    setSortOrder("desc");
-    setCurrentPage(1);
+  const handleEdit = (id?: string | number) => {
+    if (id === undefined) {
+      return;
+    }
+
+    navigate(`/billing/edit/${String(id)}`);
   };
 
-  // ============================
+  // =========================
+  // Loading
+  // =========================
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[500px] items-center justify-center bg-slate-50">
+        <div className="text-center">
+          <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-blue-600" />
+
+          <p className="text-sm text-slate-500">Loading bills...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // =========================
   // UI
-  // ============================
+  // =========================
 
   return (
     <div className="min-h-full bg-slate-50 p-6 lg:p-8">
       {/* Header */}
-
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Billing</h1>
 
           <p className="mt-1 text-sm text-slate-500">
-            Manage patient bills and payment information
+            Manage patient bills and payments
           </p>
         </div>
 
-        <button
-          onClick={() => navigate("/billing/add")}
-          className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+        <Link
+          to="/billing/add"
+          className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700"
         >
           + Create Bill
-        </button>
+        </Link>
       </div>
 
-      {/* Main Card */}
+      {/* Search & Filter */}
+      <div className="mb-5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {/* Search */}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-slate-700">
+              Search
+            </label>
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        {/* Filters */}
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setCurrentPage(1);
+              }}
+              placeholder="Search by bill ID or patient..."
+              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            />
+          </div>
 
-        <div className="border-b border-slate-200 p-5">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-            {/* Search */}
-
-            <div className="relative md:col-span-2">
-              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                🔍
-              </span>
-
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search bill ID or patient..."
-                className="w-full rounded-lg border border-slate-300 py-2.5 pl-10 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              />
-            </div>
-
-            {/* Status */}
+          {/* Status */}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-slate-700">
+              Payment Status
+            </label>
 
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-600 outline-none focus:border-blue-500"
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             >
-              <option value="All">All Payment Status</option>
+              <option value="All">All</option>
 
               <option value="Paid">Paid</option>
 
@@ -266,274 +220,211 @@ const BillingList = () => {
 
               <option value="Partially Paid">Partially Paid</option>
             </select>
-
-            {/* Clear */}
-
-            <button
-              onClick={clearFilters}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
-            >
-              Clear Filters
-            </button>
-          </div>
-
-          {/* Sort */}
-
-          <div className="mt-3 flex flex-wrap gap-3">
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-600 outline-none focus:border-blue-500"
-            >
-              <option value="date">Sort by Date</option>
-
-              <option value="patient">Sort by Patient</option>
-
-              <option value="total">Sort by Total</option>
-
-              <option value="status">Sort by Status</option>
-            </select>
-
-            <select
-              value={sortOrder}
-              onChange={(e) => setSortOrder(e.target.value)}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-600 outline-none focus:border-blue-500"
-            >
-              <option value="asc">Ascending ↑</option>
-
-              <option value="desc">Descending ↓</option>
-            </select>
           </div>
         </div>
+      </div>
 
-        {/* Count */}
+      {/* Bill Table */}
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1100px]">
+            <thead className="bg-slate-50">
+              <tr className="border-b border-slate-200 text-left">
+                <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Bill ID
+                </th>
 
-        <div className="border-b border-slate-100 px-5 py-3">
-          <p className="text-sm text-slate-500">
-            Total{" "}
-            <span className="font-semibold text-slate-700">
-              {sortedBills.length}
-            </span>{" "}
-            bills
-          </p>
-        </div>
+                <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Patient
+                </th>
 
-        {/* Loading */}
+                <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Consultation
+                </th>
 
-        {loading ? (
-          <div className="p-12 text-center">
-            <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-blue-600" />
+                <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Medicine
+                </th>
 
-            <p className="text-sm text-slate-500">Loading bills...</p>
-          </div>
-        ) : paginatedBills.length === 0 ? (
-          <div className="p-12 text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-2xl">
-              ₹
-            </div>
+                <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Lab/Test
+                </th>
 
-            <h3 className="text-sm font-semibold text-slate-800">
-              No bills found
-            </h3>
+                <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Other
+                </th>
 
-            <p className="mt-1 text-sm text-slate-500">
-              Try changing your search or filters.
-            </p>
-          </div>
-        ) : (
-          /* Table */
+                <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Total
+                </th>
 
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[1100px]">
-              <thead className="bg-slate-50">
-                <tr className="border-b border-slate-200 text-left">
-                  <th className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Bill ID
-                  </th>
+                <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Status
+                </th>
 
-                  <th className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Patient
-                  </th>
+                <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Actions
+                </th>
+              </tr>
+            </thead>
 
-                  <th className="px-5 py-4 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Consultation
-                  </th>
-
-                  <th className="px-5 py-4 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Medicine
-                  </th>
-
-                  <th className="px-5 py-4 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Lab / Test
-                  </th>
-
-                  <th className="px-5 py-4 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Other
-                  </th>
-
-                  <th className="px-5 py-4 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Total
-                  </th>
-
-                  <th className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Payment
-                  </th>
-
-                  <th className="px-5 py-4 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Actions
-                  </th>
+            <tbody>
+              {paginatedBills.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="px-6 py-12 text-center">
+                    <p className="text-sm text-slate-500">No bills found.</p>
+                  </td>
                 </tr>
-              </thead>
+              ) : (
+                paginatedBills.map((bill) => {
+                  const patient = getPatient(bill.patientId);
 
-              <tbody>
-                {paginatedBills.map((bill) => (
-                  <tr
-                    key={bill.id}
-                    className="border-b border-slate-100 hover:bg-slate-50"
-                  >
-                    {/* Bill ID */}
+                  return (
+                    <tr
+                      key={bill.id}
+                      className="border-b border-slate-100 last:border-0 hover:bg-slate-50"
+                    >
+                      {/* Bill ID */}
+                      <td className="px-6 py-4">
+                        <span className="text-sm font-semibold text-blue-600">
+                          {bill.billId}
+                        </span>
+                      </td>
 
-                    <td className="px-5 py-4">
-                      <p className="text-sm font-semibold text-slate-800">
-                        {bill.billId}
-                      </p>
+                      {/* Patient */}
+                      <td className="px-6 py-4">
+                        <div>
+                          <p className="text-sm font-medium text-slate-800">
+                            {patient?.name || "Unknown Patient"}
+                          </p>
 
-                      <p className="mt-1 text-xs text-slate-400">{bill.date}</p>
-                    </td>
+                          <p className="mt-0.5 text-xs text-slate-500">
+                            ID: {String(bill.patientId)}
+                          </p>
+                        </div>
+                      </td>
 
-                    {/* Patient */}
+                      {/* Consultation */}
+                      <td className="px-6 py-4 text-sm text-slate-600">
+                        ₹{Number(bill.consultationFee).toFixed(2)}
+                      </td>
 
-                    <td className="px-5 py-4">
-                      <p className="text-sm font-medium text-slate-800">
-                        {getPatientName(bill.patientId)}
-                      </p>
-                    </td>
+                      {/* Medicine */}
+                      <td className="px-6 py-4 text-sm text-slate-600">
+                        ₹{Number(bill.medicineCharges).toFixed(2)}
+                      </td>
 
-                    {/* Consultation */}
+                      {/* Lab */}
+                      <td className="px-6 py-4 text-sm text-slate-600">
+                        ₹{Number(bill.labCharges).toFixed(2)}
+                      </td>
 
-                    <td className="px-5 py-4 text-right text-sm text-slate-600">
-                      ₹{bill.consultationCharges.toLocaleString("en-IN")}
-                    </td>
+                      {/* Other */}
+                      <td className="px-6 py-4 text-sm text-slate-600">
+                        ₹{Number(bill.otherCharges).toFixed(2)}
+                      </td>
 
-                    {/* Medicine */}
+                      {/* Total */}
+                      <td className="px-6 py-4">
+                        <span className="text-sm font-bold text-slate-900">
+                          ₹{Number(bill.totalAmount).toFixed(2)}
+                        </span>
+                      </td>
 
-                    <td className="px-5 py-4 text-right text-sm text-slate-600">
-                      ₹{bill.medicineCharges.toLocaleString("en-IN")}
-                    </td>
-
-                    {/* Lab */}
-
-                    <td className="px-5 py-4 text-right text-sm text-slate-600">
-                      ₹{bill.labCharges.toLocaleString("en-IN")}
-                    </td>
-
-                    {/* Other */}
-
-                    <td className="px-5 py-4 text-right text-sm text-slate-600">
-                      ₹{bill.otherCharges.toLocaleString("en-IN")}
-                    </td>
-
-                    {/* Total */}
-
-                    <td className="px-5 py-4 text-right">
-                      <p className="text-sm font-bold text-slate-800">
-                        ₹{bill.totalAmount.toLocaleString("en-IN")}
-                      </p>
-                    </td>
-
-                    {/* Status */}
-
-                    <td className="px-5 py-4">
-                      <span
-                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusStyle(
-                          bill.paymentStatus,
-                        )}`}
-                      >
-                        {bill.paymentStatus}
-                      </span>
-                    </td>
-
-                    {/* Actions */}
-
-                    <td className="px-5 py-4">
-                      <div className="flex justify-end gap-2">
-                        <button
-                          onClick={() => navigate(`/billing/view/${bill.id}`)}
-                          className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100"
+                      {/* Status */}
+                      <td className="px-6 py-4">
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
+                            bill.paymentStatus === "Paid"
+                              ? "bg-green-50 text-green-700"
+                              : bill.paymentStatus === "Pending"
+                                ? "bg-orange-50 text-orange-700"
+                                : "bg-blue-50 text-blue-700"
+                          }`}
                         >
-                          View
-                        </button>
+                          {bill.paymentStatus}
+                        </span>
+                      </td>
 
-                        <button
-                          onClick={() => navigate(`/billing/edit/${bill.id}`)}
-                          className="rounded-lg border border-blue-200 px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50"
-                        >
-                          Edit
-                        </button>
+                      {/* Actions */}
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleEdit(bill.id)}
+                            className="rounded-lg border border-blue-200 px-3 py-1.5 text-xs font-medium text-blue-600 transition hover:bg-blue-50"
+                          >
+                            Edit
+                          </button>
 
-                        <button
-                          onClick={() => handleDelete(bill.id)}
-                          className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(bill.id)}
+                            className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50"
+                          >
+                            Delete
+                          </button>
 
-        {/* Pagination */}
+                          <DownloadBillButton bill={bill} patient={patient} />
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
 
-        {totalPages > 0 && (
-          <div className="flex flex-col gap-3 border-t border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+        {/* =========================
+            Pagination
+        ========================= */}
+
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between border-t border-slate-200 px-6 py-4">
             <p className="text-sm text-slate-500">
-              Showing{" "}
-              <span className="font-medium text-slate-700">
-                {startIndex + 1}
-              </span>{" "}
-              to{" "}
-              <span className="font-medium text-slate-700">
-                {Math.min(startIndex + itemsPerPage, sortedBills.length)}
-              </span>{" "}
-              of{" "}
-              <span className="font-medium text-slate-700">
-                {sortedBills.length}
-              </span>
+              Showing {startIndex + 1}–
+              {Math.min(startIndex + itemsPerPage, filteredBills.length)} of{" "}
+              {filteredBills.length} bills
             </p>
 
             <div className="flex items-center gap-2">
               <button
+                type="button"
                 disabled={currentPage === 1}
-                onClick={() => setCurrentPage((prev) => prev - 1)}
-                className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
+                className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Previous
               </button>
 
-              {Array.from({ length: totalPages }, (_, index) => index + 1).map(
-                (page) => (
-                  <button
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
-                    className={`h-8 min-w-8 rounded-lg px-2 text-sm font-medium ${
-                      currentPage === page
-                        ? "bg-blue-600 text-white"
-                        : "border border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
-                    }`}
-                  >
-                    {page}
-                  </button>
-                ),
-              )}
+              {Array.from(
+                {
+                  length: totalPages,
+                },
+                (_, index) => index + 1,
+              ).map((page) => (
+                <button
+                  key={page}
+                  type="button"
+                  onClick={() => setCurrentPage(page)}
+                  className={`h-8 w-8 rounded-lg text-sm font-medium ${
+                    currentPage === page
+                      ? "bg-blue-600 text-white"
+                      : "border border-slate-300 text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  {page}
+                </button>
+              ))}
 
               <button
+                type="button"
                 disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage((prev) => prev + 1)}
-                className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                onClick={() =>
+                  setCurrentPage((page) => Math.min(page + 1, totalPages))
+                }
+                className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Next
               </button>
@@ -545,4 +436,4 @@ const BillingList = () => {
   );
 };
 
-export default BillingList;
+export default BillList;

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../../services/api";
 import type { Patient, Doctor, Appointment } from "../../types";
+import { Link } from "react-router-dom";
 
 interface Bed {
   id?: string | number;
@@ -274,12 +275,12 @@ const Dashboard = () => {
             </p>
           </div>
 
-          <a
-            href="/patients"
+          <Link
+            to="/patients"
             className="text-sm font-medium text-blue-600 hover:text-blue-700"
           >
             View All
-          </a>
+          </Link>
         </div>
 
         {/* Empty State */}
